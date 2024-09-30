@@ -18,6 +18,15 @@ const ProgressBar: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
+// Utility function to detect iOS devices
+const isIOS = () => {
+  return (
+    ["iPad", "iPhone", "iPod"].includes(navigator.platform) ||
+    // iPad on iOS 13 detection
+    (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+  );
+};
+
 const HeadRotation: FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,6 +41,10 @@ const HeadRotation: FC = () => {
   const [leftTurnProgress, setLeftTurnProgress] = useState(0);
   const [mouthOpenProgress, setMouthOpenProgress] = useState(0);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [permissionStatus, setPermissionStatus] =
+    useState<PermissionState | null>(null);
 
   const taskStartTimeRef = useRef<{ [key: string]: number }>({});
 
@@ -113,9 +126,36 @@ const HeadRotation: FC = () => {
   };
 
   useEffect(() => {
+    // Check for camera permissions
+    const checkPermissions = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const result = await navigator.permissions.query({
+            name: "camera" as PermissionName,
+          });
+          setPermissionStatus(result.state);
+          result.onchange = () => {
+            setPermissionStatus(result.state);
+          };
+        } else {
+          // Permissions API not supported
+          setPermissionStatus("prompt");
+        }
+      } catch (err) {
+        console.error("Permission check failed:", err);
+        setPermissionStatus("denied");
+      }
+    };
+
+    checkPermissions();
+  }, []);
+
+  useEffect(() => {
     let camera: cam.Camera | null = null;
+    let active = true; // To prevent state updates after unmount
 
     const onResults = (results: Results) => {
+      if (!active) return;
       if (canvasRef.current && videoRef.current) {
         const canvasElement = canvasRef.current;
         const canvasCtx = canvasElement.getContext("2d")!;
@@ -207,38 +247,77 @@ const HeadRotation: FC = () => {
       }
     };
 
-    const faceMesh = new FaceMesh({
-      locateFile: (file: string) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-    });
-
-    faceMesh.setOptions({
-      maxNumFaces: 1,
-      refineLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-
-    faceMesh.onResults(onResults);
-
-    if (videoRef.current) {
-      camera = new cam.Camera(videoRef.current, {
-        onFrame: async () => {
-          await faceMesh.send({ image: videoRef.current! });
-        },
-        width: 640,
-        height: 480,
+    const initializeCamera = async () => {
+      const faceMesh = new FaceMesh({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
       });
-      camera.start();
+
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      faceMesh.onResults(onResults);
+
+      if (videoRef.current) {
+        try {
+          if (isIOS()) {
+            // For iOS devices, create a custom video stream
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                facingMode: "user",
+              },
+            });
+            videoRef.current.srcObject = stream;
+            await videoRef.current.play();
+            const onFrame = async () => {
+              if (!active) return;
+              await faceMesh.send({ image: videoRef.current! });
+              requestAnimationFrame(onFrame);
+            };
+            onFrame();
+          } else {
+            // For other devices, use MediaPipe's camera utils
+            camera = new cam.Camera(videoRef.current, {
+              onFrame: async () => {
+                await faceMesh.send({ image: videoRef.current! });
+              },
+              width: 640,
+              height: 480,
+            });
+            camera.start();
+          }
+        } catch (err) {
+          console.error(err);
+          setErrorMessage(
+            "Unable to access the camera. Please ensure you have granted permission."
+          );
+        }
+      }
+    };
+
+    if (
+      (permissionStatus === "granted" || hasUserInteracted) &&
+      permissionStatus !== "denied"
+    ) {
+      initializeCamera();
     }
 
     return () => {
+      active = false;
       if (camera) {
         camera.stop();
       }
-      Object.values(taskStartTimeRef.current).forEach(clearTimeout);
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach((track) => track.stop());
+      }
     };
-  }, [isInitialized, currentTaskIndex]);
+  }, [isInitialized, currentTaskIndex, hasUserInteracted, permissionStatus]);
 
   const tasks = [
     {
@@ -280,10 +359,36 @@ const HeadRotation: FC = () => {
         ))}
       </ul>
 
-      {!isInitialized && <div className={styles.loader}>Loading... ⏳</div>}
+      {permissionStatus === "prompt" && !hasUserInteracted && (
+        <button
+          className={styles.startButton}
+          onClick={() => setHasUserInteracted(true)}
+        >
+          Allow camera access
+        </button>
+      )}
+
+      {permissionStatus === "denied" && (
+        <div className={styles.error}>
+          Camera access has been denied. Please enable it in your browser
+          settings.
+        </div>
+      )}
+
+      {!isInitialized &&
+        (hasUserInteracted || permissionStatus === "granted") && (
+          <div className={styles.loader}>Loading... ⏳</div>
+        )}
+      {errorMessage && <div className={styles.error}>{errorMessage}</div>}
 
       <div className={styles.view}>
-        <video ref={videoRef} className={styles.video} autoPlay muted />
+        <video
+          ref={videoRef}
+          className={styles.video}
+          autoPlay
+          muted
+          playsInline
+        />
         <canvas
           ref={canvasRef}
           className={styles.canvas}
