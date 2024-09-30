@@ -32,11 +32,9 @@ const HeadMovementComponent: React.FC = () => {
         const videoWidth = videoRef.current.videoWidth;
         const videoHeight = videoRef.current.videoHeight;
 
-        // Set canvas dimensions to match video dimensions
         canvasElement.width = videoWidth;
         canvasElement.height = videoHeight;
 
-        // Clear canvas and draw the video frame
         canvasCtx.save();
         canvasCtx.clearRect(0, 0, videoWidth, videoHeight);
         canvasCtx.drawImage(results.image, 0, 0, videoWidth, videoHeight);
@@ -48,23 +46,19 @@ const HeadMovementComponent: React.FC = () => {
           const landmarks: NormalizedLandmarkList =
             results.multiFaceLandmarks[0];
 
-          // Detect head rotation using relative positions
-          const leftEye = landmarks[33]; // Left eye outer corner
-          const rightEye = landmarks[263]; // Right eye outer corner
-          const noseTip = landmarks[1]; // Tip of the nose
+          const leftEye = landmarks[33];
+          const rightEye = landmarks[263];
+          const noseTip = landmarks[1];
 
-          // Calculate horizontal distances
           const leftEyeToNoseX = Math.abs(noseTip.x - leftEye.x);
           const rightEyeToNoseX = Math.abs(noseTip.x - rightEye.x);
 
-          // Determine head turn direction (исправленная логика)
           if (rightEyeToNoseX > leftEyeToNoseX + 0.1) {
-            setHeadTurnedRight(true); // Head turned to the right
+            setHeadTurnedRight(true);
           } else if (leftEyeToNoseX > rightEyeToNoseX + 0.1) {
-            setHeadTurnedLeft(true); // Head turned to the left
+            setHeadTurnedLeft(true);
           }
 
-          // Detect mouth opening
           const upperLip = landmarks[13];
           const lowerLip = landmarks[14];
 
@@ -73,7 +67,6 @@ const HeadMovementComponent: React.FC = () => {
             setMouthOpened(true);
           }
 
-          // Draw the face mesh
           drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {
             color: "#C0C0C070",
             lineWidth: 1,
@@ -81,7 +74,6 @@ const HeadMovementComponent: React.FC = () => {
         }
         canvasCtx.restore();
 
-        // Set isInitialized to true when the first frame is drawn
         if (!isInitialized) {
           setIsInitialized(true);
         }
