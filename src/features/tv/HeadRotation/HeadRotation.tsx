@@ -18,15 +18,6 @@ const ProgressBar: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
-// Utility function to detect iOS devices
-const isIOS = () => {
-  return (
-    ["iPad", "iPhone", "iPod"].includes(navigator.platform) ||
-    // iPad on iOS 13 detection
-    (navigator.userAgent.includes("Mac") && "ontouchend" in document)
-  );
-};
-
 const HeadRotation: FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -126,10 +117,13 @@ const HeadRotation: FC = () => {
   };
 
   useEffect(() => {
-    // Check for camera permissions
     const checkPermissions = async () => {
-      try {
-        if (navigator.permissions && navigator.permissions.query) {
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.permissions &&
+        navigator.permissions.query
+      ) {
+        try {
           const result = await navigator.permissions.query({
             name: "camera" as PermissionName,
           });
@@ -137,13 +131,12 @@ const HeadRotation: FC = () => {
           result.onchange = () => {
             setPermissionStatus(result.state);
           };
-        } else {
-          // Permissions API not supported
-          setPermissionStatus("prompt");
+        } catch (err) {
+          console.error("Permission check failed:", err);
+          setPermissionStatus("denied");
         }
-      } catch (err) {
-        console.error("Permission check failed:", err);
-        setPermissionStatus("denied");
+      } else {
+        setPermissionStatus("prompt");
       }
     };
 
@@ -152,7 +145,17 @@ const HeadRotation: FC = () => {
 
   useEffect(() => {
     let camera: cam.Camera | null = null;
-    let active = true; // To prevent state updates after unmount
+    let active = true;
+
+    const isIOS = () => {
+      if (typeof navigator !== "undefined" && typeof window !== "undefined") {
+        return (
+          ["iPad", "iPhone", "iPod"].includes(navigator.platform) ||
+          (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+        );
+      }
+      return false;
+    };
 
     const onResults = (results: Results) => {
       if (!active) return;
@@ -400,7 +403,6 @@ const HeadRotation: FC = () => {
             height: "100%",
           }}
         />
-
         {isInitialized && (
           <div className={styles.indicators}>
             <p>Head Rotation Left: {leftRotation.toFixed(0)}%</p>

@@ -1,9 +1,14 @@
-import HeadRotationDetector from "@/features/tv/HeadRotation/HeadRotation";
+import dynamic from "next/dynamic";
+
+const HeadRotation = dynamic(
+  () => import("@/features/tv/HeadRotation/HeadRotation"),
+  { ssr: false }
+);
 
 export default function Home() {
   return (
     <div>
-      <HeadRotationDetector />
+      <HeadRotation />
     </div>
   );
 }
