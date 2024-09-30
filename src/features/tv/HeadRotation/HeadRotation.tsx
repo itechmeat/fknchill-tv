@@ -12,15 +12,98 @@ import { FACEMESH_TESSELATION } from "@mediapipe/face_mesh";
 import cn from "classnames";
 import styles from "./HeadRotation.module.scss";
 
+const ProgressBar: React.FC<{ progress: number }> = ({ progress }) => (
+  <div className={styles.progressBar}>
+    <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+  </div>
+);
+
 const HeadMovementComponent: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [headTurnedRight, setHeadTurnedRight] = useState(false);
-  const [headTurnedLeft, setHeadTurnedLeft] = useState(false);
-  const [mouthOpened, setMouthOpened] = useState(false);
+  const [isRightTurnCompleted, setIsRightTurnCompleted] = useState(false);
+  const [isLeftTurnCompleted, setIsLeftTurnCompleted] = useState(false);
+  const [isMouthOpenCompleted, setIsMouthOpenCompleted] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [leftRotation, setLeftRotation] = useState(0);
+  const [rightRotation, setRightRotation] = useState(0);
+  const [mouthOpenness, setMouthOpenness] = useState(0);
+  const [rightTurnProgress, setRightTurnProgress] = useState(0);
+  const [leftTurnProgress, setLeftTurnProgress] = useState(0);
+  const [mouthOpenProgress, setMouthOpenProgress] = useState(0);
+
+  const taskStartTimeRef = useRef<{ [key: string]: number }>({});
 
   const MOUTH_OPEN_THRESHOLD = 0.04;
+  const MAX_HEAD_ROTATION = 0.2;
+  const HEAD_TURN_THRESHOLD_PERCENTAGE = 15;
+  const MOUTH_OPEN_THRESHOLD_PERCENTAGE = 40;
+  const TASK_COMPLETION_TIME_MS = 3000;
+
+  const startTaskTimer = (taskName: string) => {
+    if (!taskStartTimeRef.current[taskName]) {
+      taskStartTimeRef.current[taskName] = Date.now();
+    }
+  };
+
+  const updateTaskProgress = (taskName: string, isConditionMet: boolean) => {
+    switch (taskName) {
+      case "turnRight":
+        if (isRightTurnCompleted) return;
+        break;
+      case "turnLeft":
+        if (isLeftTurnCompleted) return;
+        break;
+      case "openMouth":
+        if (isMouthOpenCompleted) return;
+        break;
+    }
+
+    if (!isConditionMet) {
+      delete taskStartTimeRef.current[taskName];
+      switch (taskName) {
+        case "turnRight":
+          setRightTurnProgress(0);
+          break;
+        case "turnLeft":
+          setLeftTurnProgress(0);
+          break;
+        case "openMouth":
+          setMouthOpenProgress(0);
+          break;
+      }
+      return;
+    }
+
+    const startTime = taskStartTimeRef.current[taskName];
+    if (startTime) {
+      const elapsedTime = Date.now() - startTime;
+      const progress = Math.min(
+        (elapsedTime / TASK_COMPLETION_TIME_MS) * 100,
+        100
+      );
+      switch (taskName) {
+        case "turnRight":
+          setRightTurnProgress(progress);
+          if (progress === 100) {
+            setIsRightTurnCompleted(true);
+          }
+          break;
+        case "turnLeft":
+          setLeftTurnProgress(progress);
+          if (progress === 100) {
+            setIsLeftTurnCompleted(true);
+          }
+          break;
+        case "openMouth":
+          setMouthOpenProgress(progress);
+          if (progress === 100) {
+            setIsMouthOpenCompleted(true);
+          }
+          break;
+      }
+    }
+  };
 
   useEffect(() => {
     let camera: cam.Camera | null = null;
@@ -50,21 +133,50 @@ const HeadMovementComponent: React.FC = () => {
           const rightEye = landmarks[263];
           const noseTip = landmarks[1];
 
-          const leftEyeToNoseX = Math.abs(noseTip.x - leftEye.x);
-          const rightEyeToNoseX = Math.abs(noseTip.x - rightEye.x);
+          const eyeMidpoint = {
+            x: (leftEye.x + rightEye.x) / 2,
+            y: (leftEye.y + rightEye.y) / 2,
+          };
+          const rotationX = noseTip.x - eyeMidpoint.x;
 
-          if (rightEyeToNoseX > leftEyeToNoseX + 0.1) {
-            setHeadTurnedRight(true);
-          } else if (leftEyeToNoseX > rightEyeToNoseX + 0.1) {
-            setHeadTurnedLeft(true);
+          const normalizedRotation =
+            Math.abs(rotationX / MAX_HEAD_ROTATION) * 100;
+          const clampedRotation = Math.min(100, normalizedRotation);
+
+          const isLeftTurn = rotationX > 0;
+          const isRightTurn = rotationX < 0;
+
+          setLeftRotation(isLeftTurn ? clampedRotation : 0);
+          setRightRotation(isRightTurn ? clampedRotation : 0);
+
+          if (isLeftTurn && clampedRotation > HEAD_TURN_THRESHOLD_PERCENTAGE) {
+            startTaskTimer("turnLeft");
+            updateTaskProgress("turnLeft", true);
+          } else {
+            updateTaskProgress("turnLeft", false);
+          }
+
+          if (isRightTurn && clampedRotation > HEAD_TURN_THRESHOLD_PERCENTAGE) {
+            startTaskTimer("turnRight");
+            updateTaskProgress("turnRight", true);
+          } else {
+            updateTaskProgress("turnRight", false);
           }
 
           const upperLip = landmarks[13];
           const lowerLip = landmarks[14];
-
           const mouthOpenDistance = lowerLip.y - upperLip.y;
-          if (mouthOpenDistance > MOUTH_OPEN_THRESHOLD) {
-            setMouthOpened(true);
+          const calculatedMouthOpenness = Math.min(
+            (mouthOpenDistance / MOUTH_OPEN_THRESHOLD) * 100,
+            100
+          );
+          setMouthOpenness(calculatedMouthOpenness);
+
+          if (calculatedMouthOpenness > MOUTH_OPEN_THRESHOLD_PERCENTAGE) {
+            startTaskTimer("openMouth");
+            updateTaskProgress("openMouth", true);
+          } else {
+            updateTaskProgress("openMouth", false);
           }
 
           drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {
@@ -109,13 +221,26 @@ const HeadMovementComponent: React.FC = () => {
       if (camera) {
         camera.stop();
       }
+      Object.values(taskStartTimeRef.current).forEach(clearTimeout);
     };
   }, [isInitialized]);
 
   const tasks = [
-    { name: "Turn your head to the right", completed: headTurnedRight },
-    { name: "Turn your head to the left", completed: headTurnedLeft },
-    { name: "Open your mouth wide", completed: mouthOpened },
+    {
+      name: "Turn your head to the right",
+      completed: isRightTurnCompleted,
+      progress: isRightTurnCompleted ? 100 : rightTurnProgress,
+    },
+    {
+      name: "Turn your head to the left",
+      completed: isLeftTurnCompleted,
+      progress: isLeftTurnCompleted ? 100 : leftTurnProgress,
+    },
+    {
+      name: "Open your mouth wide",
+      completed: isMouthOpenCompleted,
+      progress: isMouthOpenCompleted ? 100 : mouthOpenProgress,
+    },
   ];
 
   return (
@@ -131,9 +256,16 @@ const HeadMovementComponent: React.FC = () => {
           >
             <span className={styles.icon}>{task.completed ? "✅" : "⬜"}</span>
             <span className={styles.text}>{task.name}</span>
+            <ProgressBar progress={task.progress} />
           </li>
         ))}
       </ul>
+
+      <div className={styles.indicators}>
+        <p>Head Rotation Left: {leftRotation.toFixed(0)}%</p>
+        <p>Head Rotation Right: {rightRotation.toFixed(0)}%</p>
+        <p>Mouth Openness: {mouthOpenness.toFixed(0)}%</p>
+      </div>
 
       {!isInitialized && <div className={styles.loader}>Loading... ⏳</div>}
 
