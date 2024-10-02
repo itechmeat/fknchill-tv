@@ -1,0 +1,118 @@
+.cmp {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.title {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.taskCompleted {
+  background-color: #e6ffe6;
+}
+
+.taskActive {
+  background-color: #e6f3ff;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.taskInactive {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.icon {
+  font-size: 1.5em;
+  margin-right: 10px;
+}
+
+.text {
+  flex-grow: 1;
+}
+
+.progressBar {
+  width: 100%;
+  height: 10px;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: #4caf50;
+  transition: width 0.1s linear;
+}
+
+.startButton {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-top: 20px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.error {
+  color: red;
+  margin-top: 10px;
+}
+
+.breathVisualizer {
+  width: 100px;
+  height: 100px;
+  margin: 20px auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.breathIndicator {
+  width: 50px;
+  height: 50px;
+  background-color: #4caf50;
+  border-radius: 50%;
+  transition: transform 0.1s ease-in-out;
+}
+
+.breathing {
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.2);
+  }
+}
+
+.breathIntensity {
+  margin-top: 20px;
+  font-size: 1.2em;
+  text-align: center;
+}

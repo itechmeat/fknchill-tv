@@ -14,12 +14,14 @@
     "@mediapipe/face_mesh": "^0.4.1633559619",
     "@mediapipe/tasks-vision": "^0.10.16",
     "classnames": "^2.5.1",
+    "meyda": "^5.6.3",
     "next": "14.2.13",
     "react": "^18",
     "react-dom": "^18",
     "sass": "^1.79.4"
   },
   "devDependencies": {
+    "@types/meyda": "^4.3.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
