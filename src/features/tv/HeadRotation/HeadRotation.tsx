@@ -252,8 +252,7 @@ const HeadRotation: FC = () => {
 
     const initializeCamera = async () => {
       const faceMesh = new FaceMesh({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+        locateFile: (file: string) => `/mediapipe/${file}`,
       });
 
       faceMesh.setOptions({
@@ -268,7 +267,6 @@ const HeadRotation: FC = () => {
       if (videoRef.current) {
         try {
           if (isIOS()) {
-            // For iOS devices, create a custom video stream
             const stream = await navigator.mediaDevices.getUserMedia({
               audio: false,
               video: {
@@ -284,7 +282,6 @@ const HeadRotation: FC = () => {
             };
             onFrame();
           } else {
-            // For other devices, use MediaPipe's camera utils
             camera = new cam.Camera(videoRef.current, {
               onFrame: async () => {
                 await faceMesh.send({ image: videoRef.current! });
