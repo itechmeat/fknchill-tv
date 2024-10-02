@@ -7,8 +7,6 @@ import {
   NormalizedLandmarkList,
 } from "@mediapipe/face_mesh";
 import * as cam from "@mediapipe/camera_utils";
-import { drawConnectors } from "@mediapipe/drawing_utils";
-import { FACEMESH_TESSELATION } from "@mediapipe/face_mesh";
 import cn from "classnames";
 import styles from "./HeadRotation.module.scss";
 
@@ -18,9 +16,8 @@ const ProgressBar: React.FC<{ progress: number }> = ({ progress }) => (
   </div>
 );
 
-const HeadRotation: FC = () => {
+const HeadRotationSimple: FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRightTurnCompleted, setIsRightTurnCompleted] = useState(false);
   const [isLeftTurnCompleted, setIsLeftTurnCompleted] = useState(false);
   const [isMouthOpenCompleted, setIsMouthOpenCompleted] = useState(false);
@@ -159,19 +156,7 @@ const HeadRotation: FC = () => {
 
     const onResults = (results: Results) => {
       if (!active) return;
-      if (canvasRef.current && videoRef.current) {
-        const canvasElement = canvasRef.current;
-        const canvasCtx = canvasElement.getContext("2d")!;
-        const videoWidth = videoRef.current.videoWidth;
-        const videoHeight = videoRef.current.videoHeight;
-
-        canvasElement.width = videoWidth;
-        canvasElement.height = videoHeight;
-
-        canvasCtx.save();
-        canvasCtx.clearRect(0, 0, videoWidth, videoHeight);
-        canvasCtx.drawImage(results.image, 0, 0, videoWidth, videoHeight);
-
+      if (videoRef.current) {
         if (
           results.multiFaceLandmarks &&
           results.multiFaceLandmarks.length > 0
@@ -236,13 +221,7 @@ const HeadRotation: FC = () => {
           } else {
             updateTaskProgress("openMouth", false);
           }
-
-          drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {
-            color: "#C0C0C070",
-            lineWidth: 1,
-          });
         }
-        canvasCtx.restore();
 
         if (!isInitialized) {
           setIsInitialized(true);
@@ -381,37 +360,23 @@ const HeadRotation: FC = () => {
         )}
       {errorMessage && <div className={styles.error}>{errorMessage}</div>}
 
-      <div className={styles.demo}>
-        <div className={styles.view}>
-          <video
-            ref={videoRef}
-            className={styles.video}
-            autoPlay
-            muted
-            playsInline
-          />
-          <canvas
-            ref={canvasRef}
-            className={styles.canvas}
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              width: "100%",
-              height: "100%",
-            }}
-          />
+      <video
+        ref={videoRef}
+        style={{ display: "none" }}
+        autoPlay
+        muted
+        playsInline
+      />
+
+      {isInitialized && (
+        <div className={styles.indicators}>
+          <p>Head Rotation Left: {leftRotation.toFixed(0)}%</p>
+          <p>Head Rotation Right: {rightRotation.toFixed(0)}%</p>
+          <p>Mouth Openness: {mouthOpenness.toFixed(0)}%</p>
         </div>
-        {isInitialized && (
-          <div className={styles.indicators}>
-            <p>Head Rotation Left: {leftRotation.toFixed(0)}%</p>
-            <p>Head Rotation Right: {rightRotation.toFixed(0)}%</p>
-            <p>Mouth Openness: {mouthOpenness.toFixed(0)}%</p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };
 
-export default HeadRotation;
+export default HeadRotationSimple;

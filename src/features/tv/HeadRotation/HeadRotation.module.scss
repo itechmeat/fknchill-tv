@@ -59,10 +59,14 @@
   text-align: center;
 }
 
-.view {
+.demo {
   position: relative;
   width: 100%;
+}
+
+.view {
   aspect-ratio: 1 / 1;
+  transform: scaleX(-1);
 }
 
 .video,
